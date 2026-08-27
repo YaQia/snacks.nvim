@@ -70,6 +70,15 @@ end
 local defaults = {
   left = { "mark", "sign" }, -- priority of signs on the left (high to low)
   right = { "fold", "git" }, -- priority of signs on the right (high to low)
+  number = {
+    -- Pad the line-number field so the total width of the statuscolumn
+    -- always has a fixed parity. Thin indent-guide glyphs (e.g. "▏") are
+    -- rendered with sub-pixel anti-aliasing, so their appearance changes
+    -- when the number column changes width (e.g. 99 -> 100 lines). Keeping
+    -- the parity fixed keeps the indent guides on the same sub-pixel phase.
+    -- Set to nil to disable padding.
+    parity = "odd", -- "odd" | "even" | nil
+  },
   folds = {
     open = false, -- show open fold icons
     git_hl = false, -- use Git Signs hl for fold icons
@@ -270,7 +279,19 @@ function M._get()
     else
       num = vim.v.lnum
     end
-    components[2] = "%=" .. num .. " "
+    local parity = config.number and config.number.parity
+    if parity then
+      -- statuscolumn width = 2 (sign) + width (num) + 1 (space) + 2 (fold) = width + 5
+      -- so to make the total odd, the number field width must be even (and vice versa)
+      local width = #tostring(vim.api.nvim_buf_line_count(buf))
+      local even = parity == "odd"
+      if (width % 2 == 0) ~= even then
+        width = width + 1
+      end
+      components[2] = "%=" .. string.format("%" .. width .. "d", num) .. " "
+    else
+      components[2] = "%=" .. num .. " "
+    end
   end
 
   if show_signs or show_folds then
